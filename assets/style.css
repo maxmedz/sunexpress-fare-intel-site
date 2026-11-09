@@ -22,6 +22,6 @@ tbody tr{cursor:pointer}tbody tr:hover{background:#1d212a}tr.sel{background:#232
 .kpi{background:#12151b;border:1px solid var(--line);border-radius:10px;padding:10px}.kpi b{font-size:20px;display:block}
 .scroll{max-height:520px;overflow:auto}.chartbox{position:relative;height:320px}
 h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:14px 0 6px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}.hide-m{display:none}th,td{padding:6px 5px}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.bar{display:none}.grid2{grid-template-columns:1fr}.hide-m{display:none}th,td{padding:6px 5px}}
 footer{color:var(--mut);font-size:12px;text-align:center;padding:20px}
 .bar{height:6px;background:#262b36;border-radius:3px;overflow:hidden;width:60px;display:inline-block;vertical-align:middle;margin-right:6px}.bar i{display:block;height:100%;background:var(--bad)}
