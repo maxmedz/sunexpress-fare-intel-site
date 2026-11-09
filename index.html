@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explorer · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script></head><body>
+<script>FI.header('index.html')</script>
+<main>
+<div class="card"><div class="row">
+ <div><label>Route</label><select id="route"></select></div>
+ <div><label>Month</label><select id="month"><option value="">All</option></select></div>
+ <div><label>Verdict</label><select id="verdict"><option value="">All</option><option>Buy now</option><option>Wait</option><option>No rush</option><option>No fare</option></select></div>
+ <div><label>Max price</label><input id="maxp" type="number" placeholder="any" style="width:90px"></div>
+</div></div>
+<div class="kpis" id="kpis"></div>
+<div class="card" style="margin-top:14px"><h2 id="ctitle">Select a departure</h2>
+ <div class="chartbox"><canvas id="chart"></canvas></div>
+ <div id="detail" class="small muted" style="margin-top:8px"></div></div>
+<div class="card"><div class="scroll"><table><thead><tr>
+ <th>Departure</th><th class="hide-m">Flight</th><th class="num">Price</th><th class="num hide-m">60d min–max</th><th class="num hide-m">Google typical</th>
+ <th>P(rise 7d)</th><th class="num hide-m">7d band</th><th>Verdict</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<p class="small muted">Prices: one-way economy, 1 adult, SunExpress nonstop, from Google Flights (daily chart history + twice-daily live checks). "Buy now" = high rise risk or an active price drop; "No rush" = low 7-day rise risk; this is not financial advice.</p>
+</main><footer>Read-only dashboard · no tracking · built from a private repo</footer>
+<script>
+let DEP=[],META,HIST={},chart;
+const $=id=>document.getElementById(id);
+(async()=>{
+ const d=await FI.json('data/departures.json');DEP=d.departures;META=d.meta;FI.footer(META);
+ const qs=new URLSearchParams(location.search);
+ META.routes.forEach(r=>$('route').insertAdjacentHTML('beforeend',`<option value="${r}">${FI.routeName(r,META.city)}</option>`));
+ if(qs.get('route'))$('route').value=qs.get('route');
+ ['route','month','verdict','maxp'].forEach(i=>$(i).addEventListener('input',render));
+ await render(qs.get('dep'));
+})();
+async function loadHist(r){if(!HIST[r])HIST[r]=await FI.json(`data/history/${r}.json`);return HIST[r];}
+async function render(selId){
+ const r=$('route').value;const all=DEP.filter(x=>x.route===r);
+ const months=[...new Set(all.map(x=>x.dep_date.slice(0,7)))];
+ const mcur=$('month').value;$('month').innerHTML='<option value="">All</option>'+months.map(m=>`<option ${m===mcur?'selected':''}>${m}</option>`).join('');
+ const mp=+$('maxp').value||Infinity;
+ const rows=all.filter(x=>(!$('month').value||x.dep_date.startsWith($('month').value))&&(!$('verdict').value||x.verdict===$('verdict').value)&&((x.price??0)<=mp));
+ const priced=all.filter(x=>x.price!=null);const cheapest=priced.slice().sort((a,b)=>a.price-b.price)[0];
+ const buy=priced.filter(x=>x.verdict==='Buy now').length,sale=priced.filter(x=>x.sale).length;
+ $('kpis').innerHTML=`<div class="kpi"><span class="muted small">Departures priced</span><b>${priced.length}/${all.length}</b></div>
+ <div class="kpi"><span class="muted small">Cheapest</span><b>${cheapest?FI.eur(cheapest.price):'–'}</b><span class="small muted">${cheapest?cheapest.dep_date+' '+cheapest.dow:''}</span></div>
+ <div class="kpi"><span class="muted small">Median fare</span><b>${FI.eur(priced.map(x=>x.price).sort((a,b)=>a-b)[Math.floor(priced.length/2)])}</b></div>
+ <div class="kpi"><span class="muted small">Buy-now signals</span><b>${buy}</b><span class="small muted">${sale} in a price drop</span></div>`;
+ $('tb').innerHTML=rows.map(x=>`<tr data-id="${x.id}"><td>${x.dep_date} <span class="muted">${x.dow}</span> <span class="muted small">${x.dbd}d</span>${x.sale?'<span class="tag">drop</span>':''}</td>
+  <td class="hide-m muted">${x.flight} ${x.dep_time||''}</td><td class="num"><b class="f-${x.fair||'typical'}">${FI.eur(x.price)}</b></td>
+  <td class="num hide-m muted">${x.min60!=null?FI.eur(x.min60)+'–'+FI.eur(x.max60):'–'}</td>
+  <td class="num hide-m muted">${x.g_lo!=null?FI.eur(x.g_lo)+'–'+FI.eur(x.g_hi):'–'}</td>
+  <td>${FI.bar(x.p_rise)}</td><td class="num hide-m muted">${x.q10!=null?FI.eur(x.q10)+'–'+FI.eur(x.q90):'–'}</td><td>${FI.pill(x.verdict)}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">No departures match.</td></tr>';
+ [...$('tb').querySelectorAll('tr[data-id]')].forEach(tr=>tr.onclick=()=>show(tr.dataset.id));
+ const first=selId&&rows.find(x=>x.id===selId)?selId:(rows.find(x=>x.price!=null)||{}).id;
+ if(first)show(first);
+}
+async function show(id){
+ const x=DEP.find(d=>d.id===id);if(!x)return;
+ document.querySelectorAll('#tb tr').forEach(tr=>tr.classList.toggle('sel',tr.dataset.id===id));
+ const H=await loadHist(x.route);const h=(H.history[id]||[]);const cps=new Set((H.changepoints||{})[id]||[]);
+ const labels=h.map(p=>p[0]);
+ let fl=null;if(x.q50!=null){const d=new Date(x.price_date);d.setDate(d.getDate()+7);fl=d.toISOString().slice(0,10);labels.push(fl);}
+ const line=h.map(p=>p[1]);const live=h.map(p=>p[2]==='L'?p[1]:null);const cp=h.map(p=>cps.has(p[0])?p[1]:null);
+ const ds=[{label:'Fare',data:line,borderColor:'#ffb000',backgroundColor:'#ffb000',pointRadius:0,stepped:true,borderWidth:2},
+  {label:'Live check',data:live,showLine:false,pointRadius:4,pointBackgroundColor:'#5aa9ff',borderColor:'#5aa9ff'},
+  {label:'Change point',data:cp,showLine:false,pointRadius:5,pointStyle:'triangle',pointBackgroundColor:'#ff6b6b',borderColor:'#ff6b6b'}];
+ if(x.g_lo!=null){ds.push({label:'Google typical low',data:labels.map(()=>x.g_lo),borderColor:'rgba(62,207,142,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1,fill:false});
+  ds.push({label:'Google typical high',data:labels.map(()=>x.g_hi),borderColor:'rgba(62,207,142,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1,fill:'-1',backgroundColor:'rgba(62,207,142,.07)'});}
+ if(fl){const n=labels.length;const band=(v)=>labels.map((l,i)=>i===n-2||i===n-1?(i===n-1?v:x.price):null);
+  ds.push({label:'7d q10',data:band(x.q10),borderColor:'rgba(90,169,255,.6)',pointRadius:0,borderWidth:1,spanGaps:true,borderDash:[2,2]});
+  ds.push({label:'7d q90',data:band(x.q90),borderColor:'rgba(90,169,255,.6)',pointRadius:0,borderWidth:1,spanGaps:true,borderDash:[2,2],fill:'-1',backgroundColor:'rgba(90,169,255,.12)'});
+  ds.push({label:'7d median',data:band(x.q50),borderColor:'#5aa9ff',pointRadius:[0],borderWidth:1.5,spanGaps:true});}
+ if(chart)chart.destroy();
+ chart=new Chart($('chart'),{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+  plugins:{legend:{labels:{boxWidth:10,filter:i=>!/q10|typical low/.test(i.text)}},tooltip:{filter:i=>i.raw!=null}},scales:{x:{ticks:{maxTicksLimit:8}},y:{ticks:{callback:v=>'€'+v}}}}});
+ $('ctitle').innerHTML=`${FI.routeName(x.route,META.city)} · ${x.dep_date} (${x.dow}) ${FI.pill(x.verdict)}`;
+ $('detail').innerHTML=x.price==null?x.reason:`Now <b>${FI.eur(x.price)}</b> (${x.price_date}${x.src==='L'?', live':''}) · Google: <b class="f-${x.fair}">${x.g_level||'n/a'}</b>${x.g_lo!=null?` (typical ${FI.eur(x.g_lo)}–${FI.eur(x.g_hi)})`:''}
+  · P(rise ≥3%/€3 within 7d) <b>${FI.pct(x.p_rise)}</b> (LightGBM ${FI.pct(x.p_lgbm)}, Cox ${FI.pct(x.p_cox)}) · 7-day 80% band ${FI.eur(x.q10)}–${FI.eur(x.q90)}
+  ${x.med_days_to_rise!=null?` · median time to next rise ≈ ${x.med_days_to_rise} d`:''} · vs similar departures ${x.rel_base?Math.round((x.rel_base-1)*100)+'%':'–'}<br>${x.reason}`;
+}
+</script></body></html>

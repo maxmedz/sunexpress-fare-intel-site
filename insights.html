@@ -1,0 +1,73 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Insights · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script></head><body>
+<script>FI.header('insights.html')</script>
+<main>
+<div class="card"><h2>What the data says</h2><div id="headline" class="small"></div></div>
+<div class="kpis" id="kpis"></div>
+<div class="grid2" style="margin-top:14px">
+ <div class="card"><h3 style="margin-top:0">Booking curve: fare vs days before departure</h3><div class="chartbox"><canvas id="dbd"></canvas></div>
+  <p class="small muted">Median fare index (1.00 = that departure's own median over the window), 7-day bins with ≥20 points. Only ~9 weeks of history, so each departure contributes a short slice of the curve.</p></div>
+ <div class="card"><h3 style="margin-top:0">Seasonality: current fare by departure month</h3><div class="chartbox"><canvas id="month"></canvas></div></div>
+ <div class="card"><h3 style="margin-top:0">Weekday effect (current fares)</h3><div class="chartbox"><canvas id="wk"></canvas></div></div>
+ <div class="card"><h3 style="margin-top:0">Calibration of P(rise in 7d), LightGBM</h3><div class="chartbox"><canvas id="cal"></canvas></div></div>
+</div>
+<div class="card"><h2>Model backtest (time-based, out-of-sample)</h2><div id="bt"></div></div>
+<div class="card"><h2>Detected price drops / flash sales (change-point detection)</h2><div class="scroll" style="max-height:360px"><table><thead><tr><th>Route</th><th>Departure</th><th>From</th><th>To</th><th class="num">Sale</th><th class="num">Regular</th><th class="num">Discount</th><th></th></tr></thead><tbody id="sales"></tbody></table></div></div>
+<div class="card"><h2>Caveats</h2><ul class="small" id="cav"></ul></div>
+</main><footer>Read-only dashboard</footer>
+<script>
+const $=id=>document.getElementById(id);const COL=['#ffb000','#5aa9ff','#3ecf8e','#ff6b6b','#c084fc','#f472b6','#94a3b8','#facc15'];
+(async()=>{
+ const [d,I]=await Promise.all([FI.json('data/departures.json'),FI.json('data/insights.json')]);FI.footer(d.meta);const B=I.backtest,C=d.meta.city;
+ const rn=r=>FI.routeName(r,C);
+ const lg=B.classifier.lightgbm,cx=B.classifier.cox_ph_p7,en=B.classifier.ensemble_mean,mj=B.classifier.majority_rate,ps=B.classifier.last_change_persistence,db=B.classifier.route_dbd_bucket_rate;
+ const dec=B.decision_7d,q=B.quantiles,seq=B.sequential[1];
+ $('kpis').innerHTML=`<div class="kpi"><span class="muted small">Panel rows (departure × day)</span><b>${I.data.rows_panel.toLocaleString()}</b><span class="small muted">${I.data.departures} departures · ${I.data.first_date} → ${I.data.last_date}</span></div>
+ <div class="kpi"><span class="muted small">7-day rise rate</span><b>${FI.pct(I.data.rise_rate)}</b><span class="small muted">rise = +€3 and +3%</span></div>
+ <div class="kpi"><span class="muted small">Best AUC (rise in 7d)</span><b>${Math.max(lg.auc,cx.auc,en.auc).toFixed(3)}</b><span class="small muted">vs ${ps.auc.toFixed(3)} persistence baseline</span></div>
+ <div class="kpi"><span class="muted small">Perfect-foresight saving</span><b>€${dec.oracle.saved_per_ticket_eur}</b><span class="small muted">per ticket from waiting ≤7d</span></div>`;
+ $('headline').innerHTML=`<ul>
+ <li>Rises are <b>rare and lumpy</b>: only ${FI.pct(I.data.rise_rate)} of departure-days see a material rise within the next 7 days, and even a perfect forecaster saves just €${dec.oracle.saved_per_ticket_eur} per ticket by timing a 7-day wait.</li>
+ <li><b>Rise risk is predictable</b>: out of sample, the Cox time-to-rise model reaches AUC ${cx.auc.toFixed(3)} and LightGBM ${lg.auc.toFixed(3)}, versus ${ps.auc.toFixed(3)} for "the last change persists" and ${db.auc.toFixed(3)} for the route × DBD base rate.</li>
+ <li>But <b>"wait" rarely pays</b>: no rule beat "always buy now" on € in the 7-day backtest (LightGBM-wait ${dec['lightgbm_wait_if_p<0.5'].saved_per_ticket_eur} €/ticket, always-wait ${dec.always_wait_7d.saved_per_ticket_eur} €/ticket). The useful signal is <b>when to stop waiting</b> and <b>spotting sales</b>.</li>
+ <li>Sales are visible: ${I.sales.length} discounted segments (≥15% below neighbours) were detected, e.g. the AYT → CDG pre-Christmas €60 drop around 6 Oct.</li></ul>`;
+ // DBD curve
+ new Chart($('dbd'),{type:'line',data:{datasets:Object.entries(I.dbd_curve).filter(([r,v])=>v.length>3).map(([r,v],i)=>({label:rn(r),data:v.map(p=>({x:p[0],y:p[1]})),borderColor:COL[i],pointRadius:0,borderWidth:2}))},
+  options:{responsive:true,maintainAspectRatio:false,parsing:true,scales:{x:{type:'linear',reverse:true,title:{display:true,text:'days before departure'}},y:{title:{display:true,text:'fare index'}}},plugins:{legend:{labels:{boxWidth:10}}}}});
+ const MN=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ const order=[11,12,1,2,3,4,5,6,7,8,9];
+ new Chart($('month'),{type:'line',data:{labels:order.map(m=>MN[m]),datasets:Object.entries(I.month).filter(([r,v])=>v.length>3).map(([r,v],i)=>{const m=Object.fromEntries(v.map(p=>[p[0],p[1]]));return{label:rn(r),data:order.map(k=>m[k]??null),borderColor:COL[i],spanGaps:true,pointRadius:2}})},
+  options:{responsive:true,maintainAspectRatio:false,scales:{y:{ticks:{callback:v=>'€'+v}}},plugins:{legend:{labels:{boxWidth:10}}}}});
+ const W=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+ new Chart($('wk'),{type:'bar',data:{labels:W,datasets:Object.entries(I.weekday).filter(([r,v])=>v.length>1&&!/GZT|ASR/.test(r)).map(([r,v],i)=>{const m=Object.fromEntries(v.map(p=>[p[0],p[1]]));return{label:rn(r),data:W.map(k=>m[k]??null),backgroundColor:COL[i]}})},
+  options:{responsive:true,maintainAspectRatio:false,scales:{y:{ticks:{callback:v=>'€'+v}}},plugins:{legend:{labels:{boxWidth:10}}}}});
+ const cal=B.calibration_lightgbm;
+ new Chart($('cal'),{type:'scatter',data:{datasets:[{label:'observed vs predicted',data:cal.map(c=>({x:c.mean_pred,y:c.observed,n:c.n})),pointRadius:cal.map(c=>3+Math.sqrt(c.n)/10),backgroundColor:'#ffb000'},{label:'perfect',data:[{x:0,y:0},{x:.7,y:.7}],showLine:true,pointRadius:0,borderColor:'#555',borderDash:[4,4]}]},
+  options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'predicted'},min:0,max:.7},y:{title:{display:true,text:'observed'},min:0,max:.7}},plugins:{tooltip:{callbacks:{label:c=>`pred ${c.raw.x?.toFixed(3)} obs ${c.raw.y?.toFixed(3)} n=${c.raw.n??''}`}}}}});
+ // backtest tables
+ const name={lightgbm:'LightGBM classifier',cox_ph_p7:'Cox PH → P(rise ≤7d)',ensemble_mean:'Mean of LightGBM + Cox',majority_rate:'Baseline: base rate (majority)',last_change_persistence:'Baseline: last-change persistence',route_dbd_bucket_rate:'Baseline: route × DBD bucket rate (seasonal-naive)'};
+ const folds=B.folds.map(f=>f.cutoff);
+ let h=`<p class="small muted">Rolling origin, ${B.folds.length} weekly folds. For cutoff c: train on rows whose 7-day label window closes before c (t+7 &lt; c), test on c ≤ t &lt; c+7. Pooled test: ${B.n_test_rows.toLocaleString()} rows, ${B.n_test_departures} departures, rise rate ${FI.pct(B.test_base_rate)}. Headline probability in the app: <b>${name[I.headline_model]}</b> (best pooled Brier).</p>
+ <h3>Rise within 7 days</h3><div class="scroll"><table><thead><tr><th>Model</th><th class="num">AUC</th><th class="num">Brier</th><th class="num">Log loss</th>${folds.map(f=>`<th class="num hide-m">AUC ${f.slice(5)}</th>`).join('')}</tr></thead><tbody>`+
+ Object.entries(B.classifier).map(([k,v])=>`<tr><td>${name[k]||k}</td><td class="num">${v.auc.toFixed(3)}</td><td class="num">${v.brier.toFixed(4)}</td><td class="num">${v.logloss.toFixed(4)}</td>${folds.map(f=>`<td class="num hide-m muted">${(v.per_fold_auc[f]??NaN).toFixed(3)}</td>`).join('')}</tr>`).join('')+`</tbody></table></div>
+ <p class="small muted">LightGBM top-decile precision: ${FI.pct(B.lightgbm_top_decile_rise_rate)} of the 10% highest-risk rows rose (base rate ${FI.pct(B.test_base_rate)}).</p>
+ <h3>€ outcome: buy now vs wait 7 days (${dec.n.toLocaleString()} test decisions)</h3><table><thead><tr><th>Rule</th><th class="num">Saved vs buy-now</th><th class="num">Per ticket</th><th class="num">Share waiting</th></tr></thead><tbody>`+
+ Object.entries(dec).filter(([k])=>k!=='n').map(([k,v])=>`<tr><td>${k.replaceAll('_',' ')}</td><td class="num">€${v.saved_vs_buy_now_eur.toLocaleString()}</td><td class="num">€${v.saved_per_ticket_eur}</td><td class="num">${FI.pct(v.share_wait)}</td></tr>`).join('')+`</tbody></table>
+ <h3>Sequential buying simulation (${seq.start} → ${seq.end}, ${seq.n_departures} departures)</h3>
+ <p class="small">Each departure is watched daily from ${seq.start}; the policy buys the first day P(rise) ≥ ${seq.threshold} (forced buy on the last day). Mean fare paid: buy on day 1 <b>€${seq.mean_buy_first_day}</b>, policy <b>€${seq.mean_policy}</b>, buy on last day €${seq.mean_buy_last_day}, hindsight best €${seq.mean_hindsight_best}. On the ${seq.buy_at_60dbd.n} departures that crossed 60 DBD in the window: buy at ~60 DBD €${seq.buy_at_60dbd.mean_at60} vs policy €${seq.buy_at_60dbd.mean_policy_same_deps}.</p>
+ <h3>Quantile bands for the fare in 7 days (${q.n.toLocaleString()} rows)</h3><table><thead><tr><th>Model</th><th class="num">Pinball q10</th><th class="num">q50</th><th class="num">q90</th><th class="num">80% coverage</th><th class="num">Mean width</th><th class="num">MAE median</th></tr></thead><tbody>`+
+ [['LightGBM quantile',q.lightgbm_quantile],['Baseline: unconditional ratio quantiles',q.unconditional_ratio_quantiles]].map(([n,v])=>`<tr><td>${n}</td><td class="num">${v.pinball_q10}</td><td class="num">${v.pinball_q50}</td><td class="num">${v.pinball_q90}</td><td class="num">${FI.pct(v.coverage_80)}</td><td class="num">€${v.mean_width_eur}</td><td class="num">€${v.mae_median_eur}</td></tr>`).join('')+
+ `<tr><td>Baseline: persistence (price stays)</td><td></td><td class="num">${q.persistence_pinball_q50}</td><td></td><td></td><td></td><td class="num">€${q.persistence_mae_eur}</td></tr></tbody></table>
+ <h3>Survival: time to next rise (Cox PH)</h3><table><thead><tr><th>Fold</th><th class="num">Test rows</th><th class="num">Events</th><th class="num">C-index Cox</th><th class="num">C-index DBD only</th></tr></thead><tbody>`+
+ B.survival.map(s=>`<tr><td>${s.fold}</td><td class="num">${s.n_test}</td><td class="num">${s.events_test}</td><td class="num">${s.cindex_cox}</td><td class="num">${s.cindex_dbd_only}</td></tr>`).join('')+`</tbody></table>`;
+ $('bt').innerHTML=h;
+ $('sales').innerHTML=I.sales.map(s=>`<tr onclick="location.href='index.html?route=${s.route_id}&dep=${encodeURIComponent(s.departure_id)}'"><td>${rn(s.route_id)}</td><td>${s.dep_date}</td><td>${s.start}</td><td>${s.end}</td><td class="num">€${s.sale_price}</td><td class="num muted">€${s.regular_price}</td><td class="num">${Math.round(s.discount*100)}%</td><td>${s.ongoing?'<span class="tag">ongoing</span>':''}</td></tr>`).join('');
+ $('cav').innerHTML=[`History covers only ${I.data.first_date} → ${I.data.last_date} (Google's ~60-day chart, backfilled on 9 Nov, plus live checks since 9 Nov). Every model is retrained after each refresh; expect results to change as data grows.`,
+ 'Survivorship: only departures still listed on 9 Nov were backfilled, so short-DBD behaviour (last 2–3 weeks before departure) is thinly represented in early weeks.',
+ 'Google chart points are the cheapest fare under our filters (nonstop + SunExpress) and carry ±€1 noise; a "rise" therefore means ≥ €3 and ≥ 3%.',
+ 'Google\'s typical range is a snapshot fetched on the last day; it is shown for context but is not a model feature (it would leak future information into the backtest).',
+ 'LightGBM over-predicts at the top of the range (see calibration chart); the app\'s headline probability uses the model with the best out-of-sample Brier score.',
+ 'Seats/inventory are unobserved. "Possibly sold out" is a heuristic: a live check finds no fare within 45 days of departure.'].map(x=>`<li>${x}</li>`).join('');
+})();
+</script></body></html>

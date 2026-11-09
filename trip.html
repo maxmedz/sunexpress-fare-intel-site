@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trip optimizer · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script><script src="assets/trip.js"></script></head><body>
+<script>FI.header('trip.html')</script>
+<main>
+<div class="card"><h2>Find the cheapest out/back pair</h2><div class="row">
+ <div><label>Destination</label><select id="dest"><option value="AYT">Antalya (AYT)</option><option value="ADB">Izmir (ADB)</option><option value="GZT">Gaziantep (GZT)</option><option value="ASR">Kayseri (ASR)</option><option value="">Any</option></select></div>
+ <div><label>Outbound from</label><input type="date" id="outFrom" value="2026-12-23"></div>
+ <div><label>Outbound to</label><input type="date" id="outTo" value="2026-12-30"></div>
+ <div><label>Return from</label><input type="date" id="backFrom" value="2027-01-10"></div>
+ <div><label>Return to</label><input type="date" id="backTo" value="2027-01-17"></div>
+ <div><label>Nights min–max</label><input type="number" id="minN" value="1" style="width:60px"> <input type="number" id="maxN" value="60" style="width:60px"></div>
+ <div><button id="go">Search</button></div>
+</div><p class="small muted" style="margin-bottom:0">Totals are two one-way SunExpress fares (1 adult, economy). Risk = chance at least one leg rises within 7 days (models assume legs independent).</p></div>
+<div class="kpis" id="kpis"></div>
+<div class="card" style="margin-top:14px"><div class="scroll"><table><thead><tr><th>#</th><th>Out</th><th>Back</th><th class="num">Nights</th><th class="num">Total</th><th class="num hide-m">Out + back</th><th class="num hide-m">7d band</th><th>Rise risk</th><th>Verdict</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<div class="card"><h3 style="margin-top:0">Fares in your windows</h3><div class="chartbox" style="height:260px"><canvas id="chart"></canvas></div></div>
+</main><footer>Read-only dashboard</footer>
+<script>
+let DEP,META,chart;const $=id=>document.getElementById(id);
+const F=['dest','outFrom','outTo','backFrom','backTo','minN','maxN'];
+(async()=>{const d=await FI.json('data/departures.json');DEP=d.departures;META=d.meta;FI.footer(META);
+ const qs=new URLSearchParams(location.search);F.forEach(k=>{if(qs.has(k))$(k).value=qs.get(k)});
+ $('go').onclick=run;run();})();
+function run(){
+ const o={dest:$('dest').value,outFrom:$('outFrom').value,outTo:$('outTo').value,backFrom:$('backFrom').value,backTo:$('backTo').value,minN:+$('minN').value,maxN:+$('maxN').value};
+ history.replaceState(null,'','?'+new URLSearchParams(o));
+ const r=rankTrips(DEP,o);const top=r.slice(0,40);
+ const best=r[0];
+ $('kpis').innerHTML=r.length?`<div class="kpi"><span class="muted small">Cheapest pair</span><b>${FI.eur(best.total)}</b><span class="small muted">${best.out.dep_date} → ${best.back.dep_date}</span></div>
+ <div class="kpi"><span class="muted small">Pairs found</span><b>${r.length}</b></div>
+ <div class="kpi"><span class="muted small">Price spread</span><b>${FI.eur(r[r.length-1].total-best.total)}</b><span class="small muted">most vs least expensive</span></div>
+ <div class="kpi"><span class="muted small">Best pair verdict</span><b>${FI.pill(best.verdict)}</b><span class="small muted">risk ${FI.pct(best.risk)}</span></div>`:'<div class="kpi">No priced pairs in these windows.</div>';
+ $('tb').innerHTML=top.map((t,i)=>`<tr onclick="location.href='index.html?route=${t.out.route}&dep=${encodeURIComponent(t.out.id)}'"><td class="muted">${i+1}</td>
+ <td>${t.out.dep_date} <span class="muted">${t.out.dow}</span>${t.out.sale?'<span class="tag">drop</span>':''}</td><td>${t.back.dep_date} <span class="muted">${t.back.dow}</span>${t.back.sale?'<span class="tag">drop</span>':''}</td>
+ <td class="num">${t.nights}</td><td class="num"><b>${FI.eur(t.total)}</b></td><td class="num hide-m muted">${FI.eur(t.out.price)} + ${FI.eur(t.back.price)}</td>
+ <td class="num hide-m muted">${FI.eur(t.band[0])}–${FI.eur(t.band[1])}</td><td>${FI.bar(t.risk)}</td><td>${FI.pill(t.verdict)}</td></tr>`).join('');
+ const inW=(d,a,b)=>d.dep_date>=a&&d.dep_date<=b&&d.price!=null&&(!o.dest||d.dest===o.dest||d.origin===o.dest);
+ const outs=DEP.filter(d=>d.dir==='out'&&inW(d,o.outFrom,o.outTo)),backs=DEP.filter(d=>d.dir==='back'&&inW(d,o.backFrom,o.backTo));
+ const labels=[...outs,...backs].map(d=>d.dep_date+' '+d.dow+(o.dest?'':' '+(d.dir==='out'?d.dest:d.origin)));
+ if(chart)chart.destroy();
+ chart=new Chart($('chart'),{type:'bar',data:{labels,datasets:[{label:'Outbound',data:[...outs.map(d=>d.price),...backs.map(()=>null)],backgroundColor:'#ffb000'},{label:'Return',data:[...outs.map(()=>null),...backs.map(d=>d.price)],backgroundColor:'#5aa9ff'}]},
+  options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{ticks:{callback:v=>'€'+v}}}}});
+}
+</script></body></html>
