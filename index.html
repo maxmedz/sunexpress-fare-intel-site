@@ -8,8 +8,8 @@
  <div><label>Destination</label><select id="dest"></select></div>
  <div id="dirbox"><label>Direction</label><select id="dir"><option value="out">From Paris</option><option value="back">To Paris</option></select></div>
  <div class="full" id="owbox"><label>Flight date</label><select id="dep"></select></div>
- <div id="rtbox1" hidden><label>Outbound (from Paris)</label><select id="out"></select></div>
- <div id="rtbox2" hidden><label>Return (to Paris)</label><select id="back"></select></div>
+ <div id="rtbox1" class="full" hidden><label>Outbound (from Paris)</label><select id="out"></select></div>
+ <div id="rtbox2" class="full" hidden><label>Return (to Paris)</label><select id="back"></select></div>
 </div></div>
 <div class="card" id="heroCard">
  <div class="hero"><span class="price" id="price">–</span><span class="sub" id="sub"></span></div>
@@ -24,7 +24,7 @@
 <script>
 let DEP,META,FM,chart,mode='ow';const FC={},HI={};const $=id=>document.getElementById(id);
 const DESTS=['AYT','ADB','GZT','ASR'];
-const fmtD=s=>{const d=new Date(s+'T00:00:00Z');return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const fmtD=s=>{const d=new Date(s+'T00:00:00Z');return d.getUTCDate()+' '+MON[d.getUTCMonth()];};
 const addDays=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
 const dayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
 async function fc(r){if(!FC[r])FC[r]=await FI.json(`data/forecast/${r}.json`);return FC[r];}
@@ -108,7 +108,7 @@ async function draw(){
   interaction:{mode:'nearest',axis:'x',intersect:false},
   plugins:{legend:{display:false},tooltip:{filter:i=>['Observed','Forecast median','Expected low','90% band','50% band'].includes(i.dataset.label),
    callbacks:{title:i=>fmtD(addDays(today,i[0].parsed.x)),label:i=>`${i.dataset.label}: €${Math.round(i.parsed.y)}`}}},
-  scales:{x:{type:'linear',min:xmin,max:xmax,ticks:{maxTicksLimit:innerWidth<600?4:7,maxRotation:0,callback:v=>fmtD(addDays(today,v))},grid:{color:c=>c.tick&&c.tick.value===0?'#9aa3b2':'#262b36'}},
+  scales:{x:{type:'linear',min:xmin,max:xmax,afterBuildTicks:ax=>{const t=[xmin,Math.round(xmin/2),0,Math.round(xmax/2),xmax].filter((v,i,a)=>a.indexOf(v)===i&&(v===0||Math.abs(v)>=Math.max(3,(xmax-xmin)/12)||v===xmin||v===xmax));ax.ticks=t.map(v=>({value:v}));},ticks:{autoSkip:false,maxRotation:0,callback:v=>fmtD(addDays(today,v))},grid:{color:c=>c.tick&&c.tick.value===0?'#9aa3b2':'#262b36'}},
    y:{ticks:{callback:v=>'€'+v}}}}});
  const dd=X(dep_date);
  $('stats').innerHTML=`<div class="stat"><span>Expected lowest</span><b>${FI.eur(st.low_med)}</b><span>${st.dip_week&&st.p_cheaper>=0.25?'likely week of '+fmtD(st.dip_week):'likely today’s price'}</span></div>
