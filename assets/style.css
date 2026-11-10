@@ -25,3 +25,12 @@ h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:14px 0 6px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.bar{display:none}.grid2{grid-template-columns:1fr}.hide-m{display:none}th,td{padding:6px 5px}}
 footer{color:var(--mut);font-size:12px;text-align:center;padding:20px}
 .bar{height:6px;background:#262b36;border-radius:3px;overflow:hidden;width:60px;display:inline-block;vertical-align:middle;margin-right:6px}.bar i{display:block;height:100%;background:var(--bad)}
+.seg{display:inline-flex;background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:12px}
+.seg button{background:transparent;color:var(--mut);border-radius:8px;padding:7px 18px;font-weight:600}.seg button.on{background:var(--acc);color:#111}
+.rrow .grow{flex:1 1 240px}.rrow .grow select{width:100%}
+.leg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}.leg h3{margin:0 0 8px}
+.legrow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}.big{font-size:22px}
+table.kv td{border:0;padding:3px 8px 3px 0;white-space:normal}table.kv td:first-child{color:var(--mut);width:42%}
+[hidden]{display:none!important}
+@media(max-width:800px){.seg{display:flex}.seg button{flex:1}.rrow>div{flex:1 1 100%}.rrow select{width:100%}}
+a{color:var(--blue)}

@@ -1,8 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Explorer · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
-<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script></head><body>
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script><script src="assets/pair.js"></script><script src="assets/return.js"></script></head><body>
 <script>FI.header('index.html')</script>
 <main>
+<div class="seg" role="tablist" aria-label="Trip type"><button type="button" id="m-ow" role="tab" class="on" aria-selected="true">One-way</button><button type="button" id="m-rt" role="tab" aria-selected="false">Return</button></div>
+<div id="ow">
 <div class="card"><div class="row">
  <div><label>Route</label><select id="route"></select></div>
  <div><label>Month</label><select id="month"><option value="">All</option></select></div>
@@ -17,6 +19,29 @@
  <th>Departure</th><th class="hide-m">Flight</th><th class="num">Price</th><th class="num hide-m">60d min–max</th><th class="num hide-m">Google typical</th>
  <th>P(rise 7d)</th><th class="num hide-m">7d band</th><th>Verdict</th></tr></thead><tbody id="tb"></tbody></table></div></div>
 <p class="small muted">Prices: one-way economy, 1 adult, SunExpress nonstop, from Google Flights (daily chart history + twice-daily live checks). "Buy now" = high rise risk or an active price drop; "No rush" = low 7-day rise risk; this is not financial advice.</p>
+</div>
+<div id="rt" hidden>
+<div class="card"><div class="row rrow">
+ <div><label>Route</label><select id="rdest"></select></div>
+ <div class="grow"><label>Outbound (Paris → destination)</label><select id="rout"></select></div>
+ <div class="grow"><label>Return (destination → Paris)</label><select id="rback"></select></div>
+</div><p id="rnote" class="small" hidden></p></div>
+<div id="rbody">
+<div class="kpis" id="rkpis"></div>
+<div class="card" style="margin-top:14px"><h2 id="rctitle">Return price history</h2>
+ <div class="chartbox"><canvas id="rchart"></canvas></div>
+ <div id="rhnote" class="small muted" style="margin-top:8px"></div></div>
+<div class="grid2" id="rlegs"></div>
+<p class="small muted" id="rverdict"></p>
+<div class="card"><div class="row" style="justify-content:space-between"><h2 id="rttl" style="margin:0">Cheapest returns</h2>
+ <div class="row"><div><label>Nights min</label><input id="rmin" type="number" min="1" max="60" value="3" style="width:70px"></div>
+ <div><label>Nights max</label><input id="rmax" type="number" min="1" max="60" value="14" style="width:70px"></div>
+ <div><label>Outbound month</label><select id="rmonth"><option value="">Any</option></select></div></div></div>
+ <div class="scroll" style="margin-top:10px"><table><thead><tr><th class="hide-m">#</th><th>Out</th><th>Back</th><th class="num">Nights</th><th class="num">Total</th><th class="num hide-m">Out + back</th><th class="num hide-m">7d band</th><th class="hide-m">Risk</th><th>Verdict</th></tr></thead><tbody id="rtb"></tbody></table></div>
+ <p class="small muted" style="margin-bottom:0">Tap a row to load that pair above.</p></div>
+</div>
+<p class="small muted">Return = two one-way SunExpress fares added up (SunExpress prices each leg separately; 1 adult, economy). Risk = chance at least one leg rises ≥3%/€3 within 7 days, legs treated as independent. 7-day band = sum of the legs' 80% bands. Not financial advice.</p>
+</div>
 </main><footer>Read-only dashboard · no tracking · built from a private repo</footer>
 <script>
 let DEP=[],META,HIST={},chart;
@@ -27,8 +52,16 @@ const $=id=>document.getElementById(id);
  META.routes.forEach(r=>$('route').insertAdjacentHTML('beforeend',`<option value="${r}">${FI.routeName(r,META.city)}</option>`));
  if(qs.get('route'))$('route').value=qs.get('route');
  ['route','month','verdict','maxp'].forEach(i=>$(i).addEventListener('input',render));
+ RT.init(DEP,META,qs);
+ $('m-ow').onclick=()=>setMode('ow');$('m-rt').onclick=()=>setMode('rt');
+ if(qs.get('mode')==='return')setMode('rt');
  await render(qs.get('dep'));
 })();
+function setMode(m){
+ $('ow').hidden=m!=='ow';$('rt').hidden=m!=='rt';
+ ['ow','rt'].forEach(k=>{$('m-'+k).classList.toggle('on',k===m);$('m-'+k).setAttribute('aria-selected',k===m);});
+ if(m==='rt')RT.activate();else{const q=new URLSearchParams(location.search);if(q.get('mode')){history.replaceState(null,'',location.pathname);}if(chart)chart.resize();}
+}
 async function loadHist(r){if(!HIST[r])HIST[r]=await FI.json(`data/history/${r}.json`);return HIST[r];}
 async function render(selId){
  const r=$('route').value;const all=DEP.filter(x=>x.route===r);
