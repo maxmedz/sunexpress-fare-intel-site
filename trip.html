@@ -31,7 +31,7 @@ function run(){
  <div class="kpi"><span class="muted small">Pairs found</span><b>${r.length}</b></div>
  <div class="kpi"><span class="muted small">Price spread</span><b>${FI.eur(r[r.length-1].total-best.total)}</b><span class="small muted">most vs least expensive</span></div>
  <div class="kpi"><span class="muted small">Best pair verdict</span><b>${FI.pill(best.verdict)}</b><span class="small muted">risk ${FI.pct(best.risk)}</span></div>`:'<div class="kpi">No priced pairs in these windows.</div>';
- $('tb').innerHTML=top.map((t,i)=>`<tr onclick="location.href='index.html?route=${t.out.route}&dep=${encodeURIComponent(t.out.id)}'"><td class="muted">${i+1}</td>
+ $('tb').innerHTML=top.map((t,i)=>`<tr onclick="location.href='explorer.html?route=${t.out.route}&dep=${encodeURIComponent(t.out.id)}'"><td class="muted">${i+1}</td>
  <td>${t.out.dep_date} <span class="muted">${t.out.dow}</span>${t.out.sale?'<span class="tag">drop</span>':''}</td><td>${t.back.dep_date} <span class="muted">${t.back.dow}</span>${t.back.sale?'<span class="tag">drop</span>':''}</td>
  <td class="num">${t.nights}</td><td class="num"><b>${FI.eur(t.total)}</b></td><td class="num hide-m muted">${FI.eur(t.out.price)} + ${FI.eur(t.back.price)}</td>
  <td class="num hide-m muted">${FI.eur(t.band[0])}–${FI.eur(t.band[1])}</td><td>${FI.bar(t.risk)}</td><td>${FI.pill(t.verdict)}</td></tr>`).join('');

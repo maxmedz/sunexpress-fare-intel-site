@@ -1,111 +1,127 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Explorer · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
-<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script><script src="assets/pair.js"></script><script src="assets/return.js"></script></head><body>
+<title>Forecast · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script><script src="assets/pair.js"></script><script src="assets/traj.js"></script></head><body>
 <script>FI.header('index.html')</script>
-<main>
-<div class="seg" role="tablist" aria-label="Trip type"><button type="button" id="m-ow" role="tab" class="on" aria-selected="true">One-way</button><button type="button" id="m-rt" role="tab" aria-selected="false">Return</button></div>
-<div id="ow">
-<div class="card"><div class="row">
- <div><label>Route</label><select id="route"></select></div>
- <div><label>Month</label><select id="month"><option value="">All</option></select></div>
- <div><label>Verdict</label><select id="verdict"><option value="">All</option><option>Buy now</option><option>Wait</option><option>No rush</option><option>No fare</option></select></div>
- <div><label>Max price</label><input id="maxp" type="number" placeholder="any" style="width:90px"></div>
+<main class="focus">
+<div class="seg" role="tablist" aria-label="Trip type"><button type="button" id="m-ow" class="on">One-way</button><button type="button" id="m-rt">Return</button></div>
+<div class="card"><div class="pick">
+ <div><label>Destination</label><select id="dest"></select></div>
+ <div id="dirbox"><label>Direction</label><select id="dir"><option value="out">From Paris</option><option value="back">To Paris</option></select></div>
+ <div class="full" id="owbox"><label>Flight date</label><select id="dep"></select></div>
+ <div id="rtbox1" hidden><label>Outbound (from Paris)</label><select id="out"></select></div>
+ <div id="rtbox2" hidden><label>Return (to Paris)</label><select id="back"></select></div>
 </div></div>
-<div class="kpis" id="kpis"></div>
-<div class="card" style="margin-top:14px"><h2 id="ctitle">Select a departure</h2>
- <div class="chartbox"><canvas id="chart"></canvas></div>
- <div id="detail" class="small muted" style="margin-top:8px"></div></div>
-<div class="card"><div class="scroll"><table><thead><tr>
- <th>Departure</th><th class="hide-m">Flight</th><th class="num">Price</th><th class="num hide-m">60d min–max</th><th class="num hide-m">Google typical</th>
- <th>P(rise 7d)</th><th class="num hide-m">7d band</th><th>Verdict</th></tr></thead><tbody id="tb"></tbody></table></div></div>
-<p class="small muted">Prices: one-way economy, 1 adult, SunExpress nonstop, from Google Flights (daily chart history + twice-daily live checks). "Buy now" = high rise risk or an active price drop; "No rush" = low 7-day rise risk; this is not financial advice.</p>
+<div class="card" id="heroCard">
+ <div class="hero"><span class="price" id="price">–</span><span class="sub" id="sub"></span></div>
+ <div class="vline" id="vline">Loading…</div>
+ <div class="chartbox hero-chart"><canvas id="chart"></canvas></div>
+ <div class="legend"><span><i style="background:#ffb000"></i>Observed</span><span><i style="background:#5aa9ff"></i>Forecast median</span><span><i style="background:rgba(90,169,255,.45)"></i>50% band</span><span><i style="background:rgba(90,169,255,.18)"></i>90% band</span><span><i style="background:#3ecf8e;border-radius:50%;width:8px"></i>Expected low</span></div>
+ <div class="stats" id="stats"></div>
+ <div class="acc" id="acc"></div>
 </div>
-<div id="rt" hidden>
-<div class="card"><div class="row rrow">
- <div><label>Route</label><select id="rdest"></select></div>
- <div class="grow"><label>Outbound (Paris → destination)</label><select id="rout"></select></div>
- <div class="grow"><label>Return (destination → Paris)</label><select id="rback"></select></div>
-</div><p id="rnote" class="small" hidden></p></div>
-<div id="rbody">
-<div class="kpis" id="rkpis"></div>
-<div class="card" style="margin-top:14px"><h2 id="rctitle">Return price history</h2>
- <div class="chartbox"><canvas id="rchart"></canvas></div>
- <div id="rhnote" class="small muted" style="margin-top:8px"></div></div>
-<div class="grid2" id="rlegs"></div>
-<p class="small muted" id="rverdict"></p>
-<div class="card"><div class="row" style="justify-content:space-between"><h2 id="rttl" style="margin:0">Cheapest returns</h2>
- <div class="row"><div><label>Nights min</label><input id="rmin" type="number" min="1" max="60" value="3" style="width:70px"></div>
- <div><label>Nights max</label><input id="rmax" type="number" min="1" max="60" value="14" style="width:70px"></div>
- <div><label>Outbound month</label><select id="rmonth"><option value="">Any</option></select></div></div></div>
- <div class="scroll" style="margin-top:10px"><table><thead><tr><th class="hide-m">#</th><th>Out</th><th>Back</th><th class="num">Nights</th><th class="num">Total</th><th class="num hide-m">Out + back</th><th class="num hide-m">7d band</th><th class="hide-m">Risk</th><th>Verdict</th></tr></thead><tbody id="rtb"></tbody></table></div>
- <p class="small muted" style="margin-bottom:0">Tap a row to load that pair above.</p></div>
-</div>
-<p class="small muted">Return = two one-way SunExpress fares added up (SunExpress prices each leg separately; 1 adult, economy). Risk = chance at least one leg rises ≥3%/€3 within 7 days, legs treated as independent. 7-day band = sum of the legs' 80% bands. Not financial advice.</p>
-</div>
+<p class="small muted">Prices are SunExpress one-way economy fares for 1 adult (a return is two one-way fares added up). Forecasts are probabilities, not promises. <a href="explorer.html" id="more">All departures and model details →</a></p>
 </main><footer>Read-only dashboard · no tracking · built from a private repo</footer>
 <script>
-let DEP=[],META,HIST={},chart;
-const $=id=>document.getElementById(id);
+let DEP,META,FM,chart,mode='ow';const FC={},HI={};const $=id=>document.getElementById(id);
+const DESTS=['AYT','ADB','GZT','ASR'];
+const fmtD=s=>{const d=new Date(s+'T00:00:00Z');return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});};
+const addDays=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+const dayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+async function fc(r){if(!FC[r])FC[r]=await FI.json(`data/forecast/${r}.json`);return FC[r];}
+async function hist(r){if(!HI[r])HI[r]=await FI.json(`data/history/${r}.json`);return HI[r];}
+const opt=d=>`${d.dow} ${fmtD(d.dep_date)} ${d.dep_date.slice(0,4)} · ${FI.eur(d.price)}`;
 (async()=>{
- const d=await FI.json('data/departures.json');DEP=d.departures;META=d.meta;FI.footer(META);
+ const [d,m]=await Promise.all([FI.json('data/departures.json'),FI.json('data/forecast/meta.json')]);DEP=d.departures;META=d.meta;FM=m;FI.footer(META);
+ $('dest').innerHTML=DESTS.map(x=>`<option value="${x}">${META.city[x]}</option>`).join('');
  const qs=new URLSearchParams(location.search);
- META.routes.forEach(r=>$('route').insertAdjacentHTML('beforeend',`<option value="${r}">${FI.routeName(r,META.city)}</option>`));
- if(qs.get('route'))$('route').value=qs.get('route');
- ['route','month','verdict','maxp'].forEach(i=>$(i).addEventListener('input',render));
- RT.init(DEP,META,qs);
+ if(qs.get('dest'))$('dest').value=qs.get('dest');if(qs.get('dir'))$('dir').value=qs.get('dir');
  $('m-ow').onclick=()=>setMode('ow');$('m-rt').onclick=()=>setMode('rt');
- if(qs.get('mode')==='return')setMode('rt');
- await render(qs.get('dep'));
+ $('dest').oninput=()=>fill();$('dir').oninput=()=>fill();$('dep').oninput=()=>draw();
+ $('out').oninput=()=>fill(true);$('back').oninput=()=>draw();
+ setMode(qs.get('mode')==='return'?'rt':'ow',qs);
 })();
-function setMode(m){
- $('ow').hidden=m!=='ow';$('rt').hidden=m!=='rt';
- ['ow','rt'].forEach(k=>{$('m-'+k).classList.toggle('on',k===m);$('m-'+k).setAttribute('aria-selected',k===m);});
- if(m==='rt')RT.activate();else{const q=new URLSearchParams(location.search);if(q.get('mode')){history.replaceState(null,'',location.pathname);}if(chart)chart.resize();}
+function setMode(m,qs){mode=m;['ow','rt'].forEach(k=>$('m-'+k).classList.toggle('on',k===m));
+ $('dirbox').hidden=m==='rt';$('owbox').hidden=m==='rt';$('rtbox1').hidden=m!=='rt';$('rtbox2').hidden=m!=='rt';fill(false,qs);}
+function legs(dest,dir){return DEP.filter(d=>d.price!=null&&d.dbd>=2&&(dir==='out'?d.dir==='out'&&d.dest===dest:d.dir==='back'&&d.origin===dest)).sort((a,b)=>a.dep_date<b.dep_date?-1:1);}
+function fill(keepOut,qs){
+ const dest=$('dest').value;
+ if(mode==='ow'){const L=legs(dest,$('dir').value);const want=qs&&qs.get('dep');const cur=$('dep').value;
+  $('dep').innerHTML=L.map(d=>`<option value="${d.id}">${opt(d)}</option>`).join('');
+  const pick=[want,cur].find(v=>v&&L.some(d=>d.id===v));
+  if(pick)$('dep').value=pick;else{const t=L.find(d=>d.dbd>=21)||L[0];if(t)$('dep').value=t.id;}
+ }else{const O=legs(dest,'out'),Bk=legs(dest,'back');
+  const prevO=keepOut?$('out').value:(qs&&qs.get('out'))||$('out').value;
+  const okO=O.filter(o=>Bk.some(b=>b.dep_date>o.dep_date));
+  $('out').innerHTML=okO.map(d=>`<option value="${d.id}">${opt(d)}</option>`).join('');
+  if(okO.some(d=>d.id===prevO))$('out').value=prevO;else{const t=okO.find(d=>d.dbd>=21)||okO[0];if(t)$('out').value=t.id;}
+  const o=DEP.find(d=>d.id===$('out').value);const B=o?Bk.filter(b=>b.dep_date>o.dep_date):[];
+  const prevB=(qs&&qs.get('back'))||$('back').value;
+  $('back').innerHTML=B.map(d=>`<option value="${d.id}">${opt(d)} · ${dayDiff(o.dep_date,d.dep_date)} nights</option>`).join('');
+  if(B.some(d=>d.id===prevB))$('back').value=prevB;else{const t=B.find(b=>dayDiff(o.dep_date,b.dep_date)>=7)||B[0];if(t)$('back').value=t.id;}
+  if(!Bk.length){$('vline').textContent=`The return leg (${META.city[dest]} → Paris) isn't collected for this route.`;return;}
+ }
+ draw();
 }
-async function loadHist(r){if(!HIST[r])HIST[r]=await FI.json(`data/history/${r}.json`);return HIST[r];}
-async function render(selId){
- const r=$('route').value;const all=DEP.filter(x=>x.route===r);
- const months=[...new Set(all.map(x=>x.dep_date.slice(0,7)))];
- const mcur=$('month').value;$('month').innerHTML='<option value="">All</option>'+months.map(m=>`<option ${m===mcur?'selected':''}>${m}</option>`).join('');
- const mp=+$('maxp').value||Infinity;
- const rows=all.filter(x=>(!$('month').value||x.dep_date.startsWith($('month').value))&&(!$('verdict').value||x.verdict===$('verdict').value)&&((x.price??0)<=mp));
- const priced=all.filter(x=>x.price!=null);const cheapest=priced.slice().sort((a,b)=>a.price-b.price)[0];
- const buy=priced.filter(x=>x.verdict==='Buy now').length,sale=priced.filter(x=>x.sale).length;
- $('kpis').innerHTML=`<div class="kpi"><span class="muted small">Departures priced</span><b>${priced.length}/${all.length}</b></div>
- <div class="kpi"><span class="muted small">Cheapest</span><b>${cheapest?FI.eur(cheapest.price):'–'}</b><span class="small muted">${cheapest?cheapest.dep_date+' '+cheapest.dow:''}</span></div>
- <div class="kpi"><span class="muted small">Median fare</span><b>${FI.eur(priced.map(x=>x.price).sort((a,b)=>a-b)[Math.floor(priced.length/2)])}</b></div>
- <div class="kpi"><span class="muted small">Buy-now signals</span><b>${buy}</b><span class="small muted">${sale} in a price drop</span></div>`;
- $('tb').innerHTML=rows.map(x=>`<tr data-id="${x.id}"><td>${x.dep_date} <span class="muted">${x.dow}</span> <span class="muted small">${x.dbd}d</span>${x.sale?'<span class="tag">drop</span>':''}</td>
-  <td class="hide-m muted">${x.flight} ${x.dep_time||''}</td><td class="num"><b class="f-${x.fair||'typical'}">${FI.eur(x.price)}</b></td>
-  <td class="num hide-m muted">${x.min60!=null?FI.eur(x.min60)+'–'+FI.eur(x.max60):'–'}</td>
-  <td class="num hide-m muted">${x.g_lo!=null?FI.eur(x.g_lo)+'–'+FI.eur(x.g_hi):'–'}</td>
-  <td>${FI.bar(x.p_rise)}</td><td class="num hide-m muted">${x.q10!=null?FI.eur(x.q10)+'–'+FI.eur(x.q90):'–'}</td><td>${FI.pill(x.verdict)}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">No departures match.</td></tr>';
- [...$('tb').querySelectorAll('tr[data-id]')].forEach(tr=>tr.onclick=()=>show(tr.dataset.id));
- const first=selId&&rows.find(x=>x.id===selId)?selId:(rows.find(x=>x.price!=null)||{}).id;
- if(first)show(first);
-}
-async function show(id){
- const x=DEP.find(d=>d.id===id);if(!x)return;
- document.querySelectorAll('#tb tr').forEach(tr=>tr.classList.toggle('sel',tr.dataset.id===id));
- const H=await loadHist(x.route);const h=(H.history[id]||[]);const cps=new Set((H.changepoints||{})[id]||[]);
- const labels=h.map(p=>p[0]);
- let fl=null;if(x.q50!=null){const d=new Date(x.price_date);d.setDate(d.getDate()+7);fl=d.toISOString().slice(0,10);labels.push(fl);}
- const line=h.map(p=>p[1]);const live=h.map(p=>p[2]==='L'?p[1]:null);const cp=h.map(p=>cps.has(p[0])?p[1]:null);
- const ds=[{label:'Fare',data:line,borderColor:'#ffb000',backgroundColor:'#ffb000',pointRadius:0,stepped:true,borderWidth:2},
-  {label:'Live check',data:live,showLine:false,pointRadius:4,pointBackgroundColor:'#5aa9ff',borderColor:'#5aa9ff'},
-  {label:'Change point',data:cp,showLine:false,pointRadius:5,pointStyle:'triangle',pointBackgroundColor:'#ff6b6b',borderColor:'#ff6b6b'}];
- if(x.g_lo!=null){ds.push({label:'Google typical low',data:labels.map(()=>x.g_lo),borderColor:'rgba(62,207,142,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1,fill:false});
-  ds.push({label:'Google typical high',data:labels.map(()=>x.g_hi),borderColor:'rgba(62,207,142,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1,fill:'-1',backgroundColor:'rgba(62,207,142,.07)'});}
- if(fl){const n=labels.length;const band=(v)=>labels.map((l,i)=>i===n-2||i===n-1?(i===n-1?v:x.price):null);
-  ds.push({label:'7d q10',data:band(x.q10),borderColor:'rgba(90,169,255,.6)',pointRadius:0,borderWidth:1,spanGaps:true,borderDash:[2,2]});
-  ds.push({label:'7d q90',data:band(x.q90),borderColor:'rgba(90,169,255,.6)',pointRadius:0,borderWidth:1,spanGaps:true,borderDash:[2,2],fill:'-1',backgroundColor:'rgba(90,169,255,.12)'});
-  ds.push({label:'7d median',data:band(x.q50),borderColor:'#5aa9ff',pointRadius:[0],borderWidth:1.5,spanGaps:true});}
+async function draw(){
+ let x,series,title,p0,fcRows,st,line,code,obs,dep_date;
+ const today=FM.origin;
+ if(mode==='ow'){
+  x=DEP.find(d=>d.id===$('dep').value);if(!x)return;
+  const [F,H]=await Promise.all([fc(x.route),hist(x.route)]);const f=F[x.id];
+  obs=(H.history[x.id]||[]).map(p=>[p[0],p[1]]);dep_date=x.dep_date;
+  if(!f){$('vline').textContent='No forecast for this flight yet.';return;}
+  p0=f.p0;fcRows=f.h.map((h,i)=>({d:addDays(today,h),q:f.q[i]}));st=f.low;code=f.v;line=f.line;
+  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${FI.routeName(x.route,META.city)} · ${x.dow} ${fmtD(x.dep_date)} · ${x.flight} ${x.dep_time||''}`;
+  history.replaceState(null,'','?'+new URLSearchParams({dest:$('dest').value,dir:$('dir').value,dep:x.id}));
+ }else{
+  const a=DEP.find(d=>d.id===$('out').value),b=DEP.find(d=>d.id===$('back').value);if(!a||!b)return;
+  const [Fa,Fb,Ha,Hb]=await Promise.all([fc(a.route),fc(b.route),hist(a.route),hist(b.route)]);const fa=Fa[a.id],fb=Fb[b.id];
+  obs=PAIR.history(Ha.history[a.id],Hb.history[b.id]).map(p=>[p[0],p[1]]);dep_date=a.dep_date;
+  if(!fa||!fb){$('vline').textContent='No forecast for one of the legs yet.';return;}
+  // common horizons up to the outbound departure (you would book both legs before flying out)
+  const hb=new Map(fb.h.map((h,i)=>[h,i]));const idx=fa.h.map((h,i)=>[h,i,hb.get(h)]).filter(t=>t[2]!=null);
+  const hs=idx.map(t=>t[0]);
+  const legsQ=[{p0:fa.p0,q:idx.map(t=>fa.q[t[1]])},{p0:fb.p0,q:idx.map(t=>fb.q[t[2]])}];
+  const paths=TRAJ.sample(legsQ,hs,FM.ZL,FM.beta,FM.rho_x,1500,7);
+  const Q=TRAJ.quantiles(paths,FM.QL);p0=fa.p0+fb.p0;const dates=hs.map(h=>addDays(today,h));
+  fcRows=hs.map((h,i)=>({d:dates[i],q:Q[i]}));st=TRAJ.lowest(p0,paths,dates);[code,line]=TRAJ.verdict(p0,st,Q.map(q=>q[3]));
+  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${META.city.CDG} ⇄ ${META.city[$('dest').value]} · ${fmtD(a.dep_date)} → ${fmtD(b.dep_date)} · ${dayDiff(a.dep_date,b.dep_date)} nights · ${FI.eur(fa.p0)} + ${FI.eur(fb.p0)}`;
+  history.replaceState(null,'','?'+new URLSearchParams({mode:'return',dest:$('dest').value,out:a.id,back:b.id}));
+ }
+ $('vline').className='vline '+code;$('vline').textContent=line;
+ // chart on a numeric day axis (0 = today)
+ const X=d=>dayDiff(today,d);
+ const hist_=obs.map(([d,p])=>({x:X(d),y:p}));
+ const f0={x:0,y:p0};const q=i=>[{x:0,y:p0},...fcRows.map(r=>({x:X(r.d),y:r.q[i]}))];
+ const low=st&&st.p_cheaper>=0.25&&st.dip_week?[{x:Math.max(1,X(st.dip_week)+3),y:st.low_med}]:[];
+ const ds=[
+  {label:'q05',data:q(0),borderWidth:0,pointRadius:0,fill:false},
+  {label:'90% band',data:q(6),borderWidth:0,pointRadius:0,fill:'-1',backgroundColor:'rgba(90,169,255,.16)'},
+  {label:'q25',data:q(2),borderWidth:0,pointRadius:0,fill:false},
+  {label:'50% band',data:q(4),borderWidth:0,pointRadius:0,fill:'-1',backgroundColor:'rgba(90,169,255,.38)'},
+  {label:'Forecast median',data:q(3),borderColor:'#5aa9ff',borderWidth:2,borderDash:[5,4],pointRadius:0,fill:false},
+  {label:'Observed',data:hist_,borderColor:'#ffb000',borderWidth:2.2,pointRadius:0,stepped:true,fill:false},
+  {label:'Expected low',data:low,showLine:false,pointRadius:6,pointBackgroundColor:'#3ecf8e',borderColor:'#0f1115',borderWidth:2}];
  if(chart)chart.destroy();
- chart=new Chart($('chart'),{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-  plugins:{legend:{labels:{boxWidth:10,filter:i=>!/q10|typical low/.test(i.text)}},tooltip:{filter:i=>i.raw!=null}},scales:{x:{ticks:{maxTicksLimit:8}},y:{ticks:{callback:v=>'€'+v}}}}});
- $('ctitle').innerHTML=`${FI.routeName(x.route,META.city)} · ${x.dep_date} (${x.dow}) ${FI.pill(x.verdict)}`;
- $('detail').innerHTML=x.price==null?x.reason:`Now <b>${FI.eur(x.price)}</b> (${x.price_date}${x.src==='L'?', live':''}) · Google: <b class="f-${x.fair}">${x.g_level||'n/a'}</b>${x.g_lo!=null?` (typical ${FI.eur(x.g_lo)}–${FI.eur(x.g_hi)})`:''}
-  · P(rise ≥3%/€3 within 7d) <b>${FI.pct(x.p_rise)}</b> (LightGBM ${FI.pct(x.p_lgbm)}, Cox ${FI.pct(x.p_cox)}) · 7-day 80% band ${FI.eur(x.q10)}–${FI.eur(x.q90)}
-  ${x.med_days_to_rise!=null?` · median time to next rise ≈ ${x.med_days_to_rise} d`:''} · vs similar departures ${x.rel_base?Math.round((x.rel_base-1)*100)+'%':'–'}<br>${x.reason}`;
+ const xmin=hist_.length?hist_[0].x:-1,xmax=X(dep_date);
+ chart=new Chart($('chart'),{type:'line',data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,parsing:false,animation:false,
+  interaction:{mode:'nearest',axis:'x',intersect:false},
+  plugins:{legend:{display:false},tooltip:{filter:i=>['Observed','Forecast median','Expected low','90% band','50% band'].includes(i.dataset.label),
+   callbacks:{title:i=>fmtD(addDays(today,i[0].parsed.x)),label:i=>`${i.dataset.label}: €${Math.round(i.parsed.y)}`}}},
+  scales:{x:{type:'linear',min:xmin,max:xmax,ticks:{maxTicksLimit:innerWidth<600?4:7,maxRotation:0,callback:v=>fmtD(addDays(today,v))},grid:{color:c=>c.tick&&c.tick.value===0?'#9aa3b2':'#262b36'}},
+   y:{ticks:{callback:v=>'€'+v}}}}});
+ const dd=X(dep_date);
+ $('stats').innerHTML=`<div class="stat"><span>Expected lowest</span><b>${FI.eur(st.low_med)}</b><span>${st.dip_week&&st.p_cheaper>=0.25?'likely week of '+fmtD(st.dip_week):'likely today’s price'}</span></div>
+ <div class="stat"><span>Chance of a cheaper fare</span><b>${Math.round(st.p_cheaper*100)}%</b><span>≥€3 below today</span></div>
+ <div class="stat"><span>Departure</span><b>${dd} days</b><span>${fmtD(dep_date)}</span></div>`;
+ accNote(dd);
+}
+function accNote(dd){
+ const a=FM.accuracy,lv=FM.live||{};const b=dd<=7?'1-7':dd<=14?'8-14':dd<=30?'15-30':'31-60';
+ const w=(lv.windows||{})['30d']||(lv.windows||{}).all;const mine=w?w.overall.find(r=>r.model_version===FM.version):null;
+ const liveTxt=mine?`Live (${lv.live_days} day${lv.live_days>1?'s':''} scored): 90% band hit <b>${Math.round(mine.cov90*100)}%</b>, typical error <b>€${mine.med_ae.toFixed(0)}</b>.`
+  :`Live track record: logging since ${(FM.live.snapshots[FM.version]||{}).first_origin||FM.origin}; first scores appear as the forecast days arrive.`;
+ $('acc').innerHTML=`<b>How accurate is this?</b> In a rolling backtest (${a.origins.length} weekly origins, ${a.n_test.toLocaleString('en')} forecasts) the 90% band contained the real price <b>${Math.round(a.cov90*100)}%</b> of the time; average error of the median €${a.mae_by_bucket['1-7']} at 1–7 days, €${a.mae_by_bucket['15-30']} at 15–30 days, €${a.mae_by_bucket['31-60']} at 31–60 days.
+ ${dd>60?'<b>Beyond 60 days the bands are extrapolated</b> (only ~9 weeks of history), so treat them as rough. ':''}${/GZT|ASR/.test($('dest').value)?'Gaziantep and Kayseri have only a handful of seasonal flights, so this route borrows patterns from the others. ':''}<br>${liveTxt} <a href="track.html">Track record →</a>`;
 }
 </script></body></html>

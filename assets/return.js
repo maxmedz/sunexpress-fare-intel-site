@@ -45,7 +45,7 @@ const RT=(()=>{
   <tr><td>7-day 80% band</td><td>${FI.eur(x.q10)}–${FI.eur(x.q90)} <span class="muted">(median ${FI.eur(x.q50)})</span></td></tr>
   <tr><td>Google typical</td><td>${x.g_lo!=null?FI.eur(x.g_lo)+'–'+FI.eur(x.g_hi)+' · '+(x.g_level||''):'–'}</td></tr>
   <tr><td>60-day min–max</td><td>${x.min60!=null?FI.eur(x.min60)+'–'+FI.eur(x.max60):'–'}</td></tr></table>
-  <p class="small muted" style="margin:6px 0 0">${x.reason} <a href="index.html?route=${x.route}&dep=${encodeURIComponent(x.id)}">Open one-way view</a></p>`}</div>`;
+  <p class="small muted" style="margin:6px 0 0">${x.reason} <a href="explorer.html?route=${x.route}&dep=${encodeURIComponent(x.id)}">Open one-way view</a></p>`}</div>`;
  }
  async function show(){
   syncUrl();

@@ -1,0 +1,37 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Track record · SunExpress Fare Intel</title><link rel="stylesheet" href="assets/style.css">
+<script src="assets/chart.umd.min.js"></script><script src="assets/common.js"></script></head><body>
+<script>FI.header('track.html')</script>
+<main>
+<div class="card"><h2>Live track record</h2><p class="small muted" id="lnote"></p><div id="live"></div></div>
+<div class="card"><h2>Backtest (rolling origin)</h2><p class="small muted" id="bnote"></p><div class="scroll" id="bt"></div></div>
+<div class="card"><h2>How the forecast works</h2><div class="small" id="how"></div></div>
+</main><footer>Read-only dashboard</footer>
+<script>
+const $=id=>document.getElementById(id);const P=x=>x==null?'–':Math.round(x*100)+'%';const E=x=>x==null?'–':'€'+(+x).toFixed(1);
+const NAME=m=>m.replace(/\/.*$/,'').replace('+cqr','').replace('blend_lgbm_chronos','Forecast (LightGBM + Chronos blend)').replace('naive_last','Baseline: last price').replace('naive_dbd_profile','Baseline: booking-curve profile').replace('legacy_q7','Old 7-day band (80%)').replace('lgbm_direct','LightGBM direct').replace('ens_lgbm_chronos','50/50 LightGBM + Chronos').replace('chronos_bolt_small','Chronos-Bolt zero-shot').replace('nhits','N-HiTS').replace('ens_lgbm_chronos_nhits','LGBM+Chronos+N-HiTS');
+function tbl(rows,cols){return `<div class="scroll"><table><thead><tr>${cols.map(c=>`<th class="${c[2]||''}">${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]||''}">${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
+(async()=>{
+ const [m,d]=await Promise.all([FI.json('data/forecast/meta.json'),FI.json('data/departures.json')]);FI.footer(d.meta);
+ const lv=m.live||{},W=lv.windows||{};
+ const snaps=Object.entries(lv.snapshots||{}).map(([k,v])=>`${NAME(k)} since ${v.first_origin} (${v.runs} runs)`).join(' · ');
+ $('lnote').innerHTML=`Every refresh stores its forecast (7 quantiles per horizon) and later scores it against the observed price. Snapshots: ${snaps}. `+
+  (lv.live_days?`<b>${lv.live_days} day(s)</b> of live scores (${lv.first_scored} → ${lv.last_scored}).`:'<b>No live scores yet</b>: the first forecast days are still in the future.')+
+  (Object.keys(m.drift_adjust||{}).length?' Live drift detected: calibration currently uses the latest live residuals.':' Calibration: weekly split-conformal; switches to live residuals if live 90% coverage drifts >5 pts from nominal (≥150 scores/bucket).');
+ let h='';
+ for(const w of ['7d','30d','all'])if(W[w]){
+  h+=`<h3>${w==='all'?'All time':'Last '+w}</h3>`+tbl(W[w].overall,[['Model',r=>NAME(r.model_version)],['n',r=>r.n,'num'],['Days',r=>r.days,'num'],['90% hit',r=>P(r.cov90),'num'],['50% hit',r=>P(r.cov50),'num hide-m'],['80% hit',r=>P(r.cov80),'num hide-m'],['Median err',r=>E(r.med_ae),'num'],['CRPS',r=>E(r.crps),'num hide-m']]);
+  h+=tbl(W[w].by_bucket.filter(r=>r.model_version===m.version||r.model_version.startsWith('naive_last')),[['Model',r=>NAME(r.model_version)],['Horizon',r=>r.bucket+' d'],['n',r=>r.n,'num'],['90% hit',r=>P(r.cov90),'num'],['Median err',r=>E(r.med_ae),'num'],['MAE',r=>E(r.mae),'num hide-m']]);}
+ $('live').innerHTML=h||'<p class="muted">Nothing scored yet.</p>';
+ const a=m.accuracy,bt=m.backtest;
+ $('bnote').innerHTML=`Weekly origins ${a.origins[0]} → ${a.origins[a.origins.length-1]}, every horizon up to the end of the data (${a.n_test.toLocaleString('en')} test forecasts per model). EUR metrics; CRPS ≈ 2 × mean pinball over 19 levels. Lower is better; coverage should be near 50% / 90%. Backtest run ${m.backtest_generated_at.slice(0,10)}.`;
+ const order=['1-7','8-14','15-30','31-60'];
+ const rows=bt.by_bucket.slice().sort((x,y)=>order.indexOf(x.bucket)-order.indexOf(y.bucket)||x.crps-y.crps);
+ $('bt').innerHTML=tbl(bt.overall.filter(r=>r.variant==='cqr'||r.model.startsWith('naive')).sort((x,y)=>x.crps-y.crps),[['Model (all horizons)',r=>NAME(r.model)+(r.model===m.model?' ✓':'')],['CRPS',r=>E(r.crps),'num'],['Pinball',r=>E(r.pinball),'num hide-m'],['MAE',r=>E(r.mae),'num'],['50%',r=>P(r.cov50),'num'],['90%',r=>P(r.cov90),'num']])+
+  tbl(rows,[['Horizon',r=>r.bucket+' d'],['Model',r=>NAME(r.model)],['CRPS',r=>E(r.crps),'num'],['MAE',r=>E(r.mae),'num'],['50%',r=>P(r.cov50),'num hide-m'],['90%',r=>P(r.cov90),'num']]);
+ $('how').innerHTML=`<p><b>Model.</b> A blend of a direct multi-horizon LightGBM quantile model (one global model, horizon as a feature, pooled across all routes; days-to-departure, weekday, month, French and Turkish school and public holidays, recent price moves) and the Chronos-Bolt time-series foundation model used zero-shot. LightGBM gets all the weight up to 10 days, ramping to 50/50 from 20 days, the split that won the backtest. Beyond the longest horizon seen in training the spread grows with √horizon.</p>
+ <p><b>Calibration.</b> Split conformalized quantile regression per horizon bucket (1–7, 8–14, 15–30, 31–60, 61+ days) on the most recent week of targets, for the 50%, 80% and 90% bands.</p>
+ <p><b>Paths.</b> A Gaussian copula ties the horizons together (correlation (h₁/h₂)^β with β=${m.beta}, chosen so the predicted chance of a ≥€3 dip within 28 days matches what happened in the backtest). 2,000 sampled paths give the expected lowest price and when it is likely. A return pair samples both legs (cross-leg correlation ${m.rho_x}) and adds them on each day, so its bands are proper sums rather than added quantiles.</p>
+ <p><b>Weak spots.</b> Only about 9 weeks of history: horizons over 60 days are extrapolated and untested; long-horizon bands under-covered in the backtest (see 31–60 d); Gaziantep and Kayseri have a handful of seasonal flights and lean on the pooled model; prices sit unchanged ~60% of days, so 50% bands often over-cover.</p>`;
+})();
+</script></body></html>
