@@ -31,7 +31,7 @@ const TRAJ = {
     const best=Object.entries(wk).sort((a,b)=>b[1]-a[1])[0];
     return {low_med:s[Math.floor(N/2)],low_p10:s[Math.floor(N*0.1)],low_p90:s[Math.floor(N*0.9)],p_cheaper:dip.filter(Boolean).length/N,dip_week:best?best[0]:null};},
   weekStart(d){const t=new Date(d+'T00:00:00Z');const k=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-k);return t.toISOString().slice(0,10);},
-  verdict(p0,st,q50){const pc=st.p_cheaper,low=st.low_med,up14=q50.length?q50[Math.min(13,q50.length-1)]:p0,pct=x=>Math.round(x*100)+'%';
+  verdict(p0,st,q50){const pc=+st.p_cheaper.toFixed(2),low=st.low_med,up14=q50.length?q50[Math.min(13,q50.length-1)]:p0,pct=x=>Math.round(x*100)+'%';
     if(pc>=0.6&&p0-low>=5)return['wait',`Worth waiting: ${pct(pc)} chance it dips to about €${Math.round(low)}`+(st.dip_week?`, most likely the week of ${(d=>d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()])(new Date(st.dip_week+'T00:00:00Z'))}.`:'.')];
     if(pc<0.3&&up14>=p0+3)return['buy',`Book now: a meaningful dip is unlikely (${pct(pc)}) and the fare is expected to rise.`];
     if(pc<0.3)return['buy',`Book when ready: only a ${pct(pc)} chance of a lower price before departure.`];

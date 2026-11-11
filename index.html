@@ -112,7 +112,7 @@ async function draw(){
    y:{ticks:{callback:v=>'€'+v}}}}});
  const dd=X(dep_date);
  $('stats').innerHTML=`<div class="stat"><span>Expected lowest</span><b>${FI.eur(st.low_med)}</b><span>${st.dip_week&&st.p_cheaper>=0.25?'likely week of '+fmtD(st.dip_week):'likely today’s price'}</span></div>
- <div class="stat"><span>Chance of a cheaper fare</span><b>${Math.round(st.p_cheaper*100)}%</b><span>≥€3 below today</span></div>
+ <div class="stat"><span>Chance of a cheaper fare</span><b>${Math.round(+st.p_cheaper.toFixed(2)*100)}%</b><span>≥€3 below today</span></div>
  <div class="stat"><span>Departure</span><b>${dd} days</b><span>${fmtD(dep_date)}</span></div>`;
  accNote(dd);
 }
