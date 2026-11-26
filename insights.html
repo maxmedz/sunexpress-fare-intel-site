@@ -65,7 +65,7 @@ const $=id=>document.getElementById(id);const COL=['#ffb000','#5aa9ff','#3ecf8e'
  $('sales').innerHTML=I.sales.map(s=>`<tr onclick="location.href='index.html?route=${s.route_id}&dep=${encodeURIComponent(s.departure_id)}'"><td>${rn(s.route_id)}</td><td>${s.dep_date}</td><td>${s.start}</td><td>${s.end}</td><td class="num">€${s.sale_price}</td><td class="num muted">€${s.regular_price}</td><td class="num">${Math.round(s.discount*100)}%</td><td>${s.ongoing?'<span class="tag">ongoing</span>':''}</td></tr>`).join('');
  $('cav').innerHTML=[`History covers only ${I.data.first_date} → ${I.data.last_date} (Google's ~60-day chart, backfilled on 9 Nov, plus live checks since 9 Nov). Every model is retrained after each refresh; expect results to change as data grows.`,
  'Survivorship: only departures still listed on 9 Nov were backfilled, so short-DBD behaviour (last 2–3 weeks before departure) is thinly represented in early weeks.',
- 'Google chart points are the cheapest fare under our filters (nonstop + SunExpress) and carry ±€1 noise; a "rise" therefore means ≥ €3 and ≥ 3%.',
+ 'Google chart points are the cheapest fare under our filters (nonstop + SunExpress; nonstop + any airline for city-pair routes) and carry ±€1 noise; a "rise" therefore means ≥ €3 and ≥ 3%.',
  'Google\'s typical range is a snapshot fetched on the last day; it is shown for context but is not a model feature (it would leak future information into the backtest).',
  'LightGBM over-predicts at the top of the range (see calibration chart); the app\'s headline probability uses the model with the best out-of-sample Brier score.',
  'Seats/inventory are unobserved. "Possibly sold out" is a heuristic: a live check finds no fare within 45 days of departure.'].map(x=>`<li>${x}</li>`).join('');

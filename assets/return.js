@@ -2,13 +2,12 @@
 const RT=(()=>{
  let DEP,META,chart,HIST={},S={dest:'AYT',out:null,back:null,minN:3,maxN:14,month:''};
  const $=id=>document.getElementById(id);
- const DESTS=['AYT','ADB','GZT','ASR'];
  const lbl=d=>`${d.dow} ${d.dep_date} · ${d.price!=null?FI.eur(d.price):'no fare'}${d.price!=null?' · '+d.verdict:''}`;
  async function hist(r){if(!HIST[r])HIST[r]=await FI.json(`data/history/${r}.json`);return HIST[r];}
  function syncUrl(){const q=new URLSearchParams({mode:'return',dest:S.dest,out:S.out||'',back:S.back||'',minN:S.minN,maxN:S.maxN});if(S.month)q.set('month',S.month);history.replaceState(null,'','?'+q);}
  function init(dep,meta,qs){
   DEP=dep;META=meta;
-  $('rdest').innerHTML=DESTS.filter(d=>META.routes.includes('CDG-'+d)).map(d=>`<option value="${d}">${META.city.CDG} ⇄ ${META.city[d]||d}</option>`).join('');
+  $('rdest').innerHTML=PAIR.dests(META).map(d=>`<option value="${d}">${PAIR.home(META,d)} ⇄ ${META.city[d]||d}</option>`).join('');
   if(qs.get('dest'))S.dest=qs.get('dest');S.out=qs.get('out')||null;S.back=qs.get('back')||null;
   if(qs.get('minN'))S.minN=+qs.get('minN');if(qs.get('maxN'))S.maxN=+qs.get('maxN');S.month=qs.get('month')||'';
   $('rdest').value=S.dest;$('rmin').value=S.minN;$('rmax').value=S.maxN;
@@ -40,7 +39,7 @@ const RT=(()=>{
  function legCard(x,title){
   if(!x)return `<div class="leg"><h3>${title}</h3><p class="muted">Pick a flight.</p></div>`;
   return `<div class="leg"><h3>${title} · ${FI.routeName(x.route,META.city)} ${FI.pill(x.verdict)}</h3>
-  <div class="legrow"><b class="big f-${x.fair||'typical'}">${FI.eur(x.price)}</b><span class="muted small">${x.dow} ${x.dep_date} · ${x.flight} ${x.dep_time||''} · ${x.dbd}d to go${x.sale?' <span class="tag">drop</span>':''}</span></div>
+  <div class="legrow"><b class="big f-${x.fair||'typical'}">${FI.eur(x.price)}</b><span class="muted small">${x.dow} ${x.dep_date} · ${x.via||(x.flight+' '+(x.dep_time||''))} · ${x.dbd}d to go${x.sale?' <span class="tag">drop</span>':''}</span></div>
   ${x.price==null?`<p class="small muted">${x.reason}</p>`:`<table class="kv small"><tr><td>Rise risk 7d</td><td>${FI.bar(x.p_rise)} <span class="muted">LGBM ${FI.pct(x.p_lgbm)} · Cox ${FI.pct(x.p_cox)}</span></td></tr>
   <tr><td>7-day 80% band</td><td>${FI.eur(x.q10)}–${FI.eur(x.q90)} <span class="muted">(median ${FI.eur(x.q50)})</span></td></tr>
   <tr><td>Google typical</td><td>${x.g_lo!=null?FI.eur(x.g_lo)+'–'+FI.eur(x.g_hi)+' · '+(x.g_level||''):'–'}</td></tr>
@@ -71,7 +70,7 @@ const RT=(()=>{
   if(chart)chart.destroy();
   chart=new Chart($('rchart'),{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
    plugins:{legend:{labels:{boxWidth:10,filter:i=>!/q10/.test(i.text)}},tooltip:{filter:i=>i.raw!=null}},scales:{x:{ticks:{maxTicksLimit:7}},y:{ticks:{callback:v=>'€'+v}}}}});
-  $('rctitle').textContent=`${META.city.CDG} ⇄ ${META.city[S.dest]||S.dest} · ${a.dep_date} → ${b.dep_date}`;
+  $('rctitle').textContent=`${PAIR.home(META,S.dest)} ⇄ ${META.city[S.dest]||S.dest} · ${a.dep_date} → ${b.dep_date}`;
   $('rhnote').textContent=h.length?`Total summed on each day both legs had a price (${h.length} days, ${h[0][0]} → ${h[h.length-1][0]}).`:'No day yet where both legs were priced.';
   document.querySelectorAll('#rtb tr').forEach(tr=>tr.classList.toggle('sel',tr.dataset.o===S.out&&tr.dataset.b===S.back));
  }

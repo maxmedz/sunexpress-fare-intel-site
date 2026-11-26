@@ -19,11 +19,11 @@
  <div class="stats" id="stats"></div>
  <div class="acc" id="acc"></div>
 </div>
-<p class="small muted">Prices are SunExpress one-way economy fares for 1 adult (a return is two one-way fares added up). Forecasts are probabilities, not promises. <a href="explorer.html" id="more">All departures and model details →</a></p>
+<p class="small muted">Prices are one-way nonstop economy fares for 1 adult (SunExpress on the Turkey routes; the cheapest airline across all airports on city-pair routes like Paris ⇄ Milan) (a return is two one-way fares added up). Forecasts are probabilities, not promises. <a href="explorer.html" id="more">All departures and model details →</a></p>
 </main><footer>Read-only dashboard · no tracking · built from a private repo</footer>
 <script>
 let DEP,META,FM,chart,mode='ow';const FC={},HI={};const $=id=>document.getElementById(id);
-const DESTS=['AYT','ADB','GZT','ASR'];
+let DESTS=['AYT','ADB','GZT','ASR'];
 const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const fmtD=s=>{const d=new Date(s+'T00:00:00Z');return d.getUTCDate()+' '+MON[d.getUTCMonth()];};
 const addDays=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
 const dayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
@@ -32,7 +32,7 @@ async function hist(r){if(!HI[r])HI[r]=await FI.json(`data/history/${r}.json`);r
 const opt=d=>`${d.dow} ${fmtD(d.dep_date)} ${d.dep_date.slice(0,4)} · ${FI.eur(d.price)}`;
 (async()=>{
  const [d,m]=await Promise.all([FI.json('data/departures.json'),FI.json('data/forecast/meta.json')]);DEP=d.departures;META=d.meta;FM=m;FI.footer(META);
- $('dest').innerHTML=DESTS.map(x=>`<option value="${x}">${META.city[x]}</option>`).join('');
+ DESTS=PAIR.dests(META);$('dest').innerHTML=DESTS.map(x=>`<option value="${x}">${META.city[x]||x}</option>`).join('');
  const qs=new URLSearchParams(location.search);
  if(qs.get('dest'))$('dest').value=qs.get('dest');if(qs.get('dir'))$('dir').value=qs.get('dir');
  $('m-ow').onclick=()=>setMode('ow');$('m-rt').onclick=()=>setMode('rt');
@@ -71,7 +71,7 @@ async function draw(){
   obs=(H.history[x.id]||[]).map(p=>[p[0],p[1]]);dep_date=x.dep_date;
   if(!f){$('vline').textContent='No forecast for this flight yet.';return;}
   p0=f.p0;fcRows=f.h.map((h,i)=>({d:addDays(today,h),q:f.q[i]}));st=f.low;code=f.v;line=f.line;
-  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${FI.routeName(x.route,META.city)} · ${x.dow} ${fmtD(x.dep_date)} · ${x.flight} ${x.dep_time||''}`;
+  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${FI.routeName(x.route,META.city)} · ${x.dow} ${fmtD(x.dep_date)} · ${x.via||(x.flight+' '+(x.dep_time||''))}`;
   history.replaceState(null,'','?'+new URLSearchParams({dest:$('dest').value,dir:$('dir').value,dep:x.id}));
  }else{
   const a=DEP.find(d=>d.id===$('out').value),b=DEP.find(d=>d.id===$('back').value);if(!a||!b)return;
@@ -85,7 +85,7 @@ async function draw(){
   const paths=TRAJ.sample(legsQ,hs,FM.ZL,FM.beta,FM.rho_x,1500,7);
   const Q=TRAJ.quantiles(paths,FM.QL);p0=fa.p0+fb.p0;const dates=hs.map(h=>addDays(today,h));
   fcRows=hs.map((h,i)=>({d:dates[i],q:Q[i]}));st=TRAJ.lowest(p0,paths,dates);[code,line]=TRAJ.verdict(p0,st,Q.map(q=>q[3]));
-  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${META.city.CDG} ⇄ ${META.city[$('dest').value]} · ${fmtD(a.dep_date)} → ${fmtD(b.dep_date)} · ${dayDiff(a.dep_date,b.dep_date)} nights · ${FI.eur(fa.p0)} + ${FI.eur(fb.p0)}`;
+  $('price').textContent=FI.eur(p0);$('sub').innerHTML=`${PAIR.home(META,$('dest').value)} ⇄ ${META.city[$('dest').value]} · ${fmtD(a.dep_date)} → ${fmtD(b.dep_date)} · ${dayDiff(a.dep_date,b.dep_date)} nights · ${FI.eur(fa.p0)} + ${FI.eur(fb.p0)}`;
   history.replaceState(null,'','?'+new URLSearchParams({mode:'return',dest:$('dest').value,out:a.id,back:b.id}));
  }
  $('vline').className='vline '+code;$('vline').textContent=line;

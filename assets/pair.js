@@ -1,5 +1,6 @@
 // Pure return-pair logic for the Explorer's Return mode (unit-tested with node: tests/test_pair.js).
-// SunExpress prices each leg separately, so a return = outbound one-way fare + inbound one-way fare.
+// Fares are one-way per leg (SunExpress, and the cheapest nonstop on any airline for city-pair markets),
+// so a return = outbound one-way fare + inbound one-way fare.
 const PAIR = {
   day(s){return Date.parse(s+'T00:00:00Z')/864e5;},
   nights(a,b){return PAIR.day(b.dep_date)-PAIR.day(a.dep_date);},
@@ -31,7 +32,18 @@ const PAIR = {
     const mb=new Map((hb||[]).map(p=>[p[0],p[1]]));
     return (ha||[]).filter(p=>p[1]!=null&&mb.get(p[0])!=null).map(p=>[p[0],p[1]+mb.get(p[0]),p[1],mb.get(p[0])]);
   },
-  // Outbound legs CDG->dest and inbound legs dest->CDG for one destination.
+  // Destinations (the non-Paris end) that have outbound departures, in route order.
+  // meta.route_info rows: [route, home, away, dir, airline]. Older data files lack it -> SunExpress list.
+  dests(meta){
+    const ri=meta.route_info;
+    if(!ri||!ri.length)return ['AYT','ADB','GZT','ASR'].filter(d=>(meta.routes||[]).includes('CDG-'+d));
+    return [...new Set(ri.filter(r=>r[3]==='out').map(r=>r[2]))];
+  },
+  // Paris-side label for a destination: "Paris CDG" for SunExpress, "Paris" (all airports) for markets.
+  home(meta,dest){const r=(meta.route_info||[]).find(x=>x[2]===dest);const h=r?r[1]:'CDG';return (meta.city||{})[h]||h;},
+  // Whose fares: "SunExpress" or "any airline".
+  carrier(meta,dest){const r=(meta.route_info||[]).find(x=>x[2]===dest);const a=r?r[4]:'XQ';return (meta.carrier_label||{})[a]||'SunExpress';},
+  // Outbound legs Paris->dest and inbound legs dest->Paris for one destination.
   legs(deps,dest){
     const outs=deps.filter(d=>d.dir==='out'&&d.dest===dest).sort((x,y)=>x.dep_date<y.dep_date?-1:1);
     const backs=deps.filter(d=>d.dir==='back'&&d.origin===dest).sort((x,y)=>x.dep_date<y.dep_date?-1:1);
